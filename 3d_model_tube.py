@@ -8,10 +8,6 @@ from pyellipsoid import drawing
 
 import vg
 
-from mpl_toolkits.mplot3d import proj3d
-
-import mpl_toolkits.mplot3d as m3d
-
 from numpy.polynomial.polynomial import polyfit
 
 import pandas as pd
@@ -20,42 +16,15 @@ from scipy.interpolate import griddata
 
 from itertools import chain 
 
-
 from shapely.geometry.point import Point
 from shapely.geometry import Polygon as sPolygon
 from shapely import affinity
 from matplotlib.patches import Polygon as mPolygon
 
-
 from skimage.measure import EllipseModel
 from matplotlib.patches import Ellipse, Circle
-import matplotlib.pyplot as plt
 
-
-
-
-
-
-class Coord(object):
-    def __init__(self,x,y):
-        self.x = x
-        self.y = y
-
-    def __sub__(self,other):
-        # This allows you to substract vectors
-        return Coord(self.x-other.x,self.y-other.y)
-
-    def __repr__(self):
-        # Used to get human readable coordinates when printing
-        return "Coord(%f,%f)"%(self.x,self.y)
-
-    def length(self):
-        # Returns the length of the vector
-        return math.sqrt(self.x**2 + self.y**2)
-
-    def angle(self):
-        # Returns the vector's angle
-        return math.atan2(self.y,self.x)
+from copy import copy
 
 def normalize(coord):
     return Coord(
@@ -182,39 +151,6 @@ def getPlaneNormal(x1,y1,z1,x2,y2,z2,x3,y3,z3):
     y = 1*v1[2]*v2[0]+1*v1[0]*v2[2]
     z = 1*v1[1]*v2[0]+1*v1[0]*v2[1]
     return [x,y,z]
-
-def plot_arc3d(vector1, vector2, radius=0.2, fig=None, colour='black'):
-    """ Plot arc between two given vectors in 3D space. """
-
-    """ Confirm correct input arguments """
-    assert len(vector1) == 3
-    assert len(vector2) == 3
-
-    """ Calculate vector between two vector end points, and the resulting spherical angles for various points along 
-        this vector. From this, derive points that lie along the arc between vector1 and vector2 """
-    v = [i-j for i, j in zip(vector1, vector2)]
-    v_points_direct = [(vector2[0]+v[0]*l, vector2[1]+v[1]*l, vector2[2]+v[2]*l) for l in np.linspace(0, 1)]
-    v_phis = [math.atan2(v_point[1], v_point[0]) for v_point in v_points_direct]
-    v_thetas = [math.acos(v_point[2]/np.linalg.norm(v_point)) for v_point in v_points_direct]
-
-    v_points_arc = [(radius*np.sin(theta)*np.cos(phi), radius*np.sin(theta)*np.sin(phi), radius*np.cos(theta))
-                    for theta, phi in zip(v_thetas, v_phis)]
-    v_points_arc.append((0, 0, 0))
-
-    # if fig is None:
-    #     fig = plt.figure()
-    #     ax = fig.add_subplot(111, projection='3d')
-    # else:
-    #     ax = fig.gca()
-
-    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-    """ Plot polygon (face colour must be set afterwards, otherwise it over-rides the transparency)
-        https://stackoverflow.com/questions/18897786/transparency-for-poly3dcollection-plot-in-matplotlib """
-    points_collection = Poly3DCollection([v_points_arc], alpha=0.4)
-    points_collection.set_facecolor(colour)
-    ax.add_collection3d(points_collection)
-
-    return fig
 
 def getAngle(x1,y1,z1,x2,y2,z2,x3,y3,z3, x4=None,y4=None,z4=None,x5=None,y5=None,z5=None,x6=None,y6=None,z6=None, ex=None, ey=None, ez=None):  
 
@@ -343,8 +279,8 @@ def rotateZ(x,y, cx,cy, radians):
 
 def createEllipse(x,y,z,rx,ry,rz, index, x_prev=None, y_prev=None, z_prev=None, type=None, color=None):
     index = int(index)
-    if (index == len(x)-1):
-        return
+    #if (index == len(x)-1):
+    #    return
     u = v = None
     e_x = []
     e_y = [] 
@@ -421,9 +357,15 @@ def createEllipse(x,y,z,rx,ry,rz, index, x_prev=None, y_prev=None, z_prev=None, 
         e_y = np.array([[e_y[i], e_y[i+1]] for i in range(len(e_y)-1)])
         e_z = np.array([[e_z[i], e_z[i+1]] for i in range(len(e_z)-1)])
 
-    perp_x1, perp_y1, perp_x2, perp_y2 = getPerpendicular(x[index],y[index],x[index+1],y[index+1], 0.3)
-    perp_x3, perp_z1, perp_x4, perp_z2 = getPerpendicular(x[index],z[index],x[index+1],z[index+1], 0.3)
+    if (index == len(x)-1):
+        perp_x1, perp_y1, perp_x2, perp_y2 = getPerpendicular(x[index],y[index],x[index-1],y[index-1], 0.3)
+        perp_x3, perp_z1, perp_x4, perp_z2 = getPerpendicular(x[index],z[index],x[index-1],z[index-1], 0.3)
 
+    else:
+        perp_x1, perp_y1, perp_x2, perp_y2 = getPerpendicular(x[index],y[index],x[index+1],y[index+1], 0.3)
+        perp_x3, perp_z1, perp_x4, perp_z2 = getPerpendicular(x[index],z[index],x[index+1],z[index+1], 0.3)
+
+    
     # gax = getAngle(perp_x3,y[index],perp_z1,x[index],y[index],z[index],perp_x1,perp_y1,z[index], ex=1, ey=0,ez=0)
     # print("getAngle x:", gax)
     # gay = getAngle(perp_x3,y[index],perp_z1,x[index],y[index],z[index],perp_x1,perp_y1,z[index], ex=0, ey=1,ez=0)
@@ -440,8 +382,8 @@ def createEllipse(x,y,z,rx,ry,rz, index, x_prev=None, y_prev=None, z_prev=None, 
     #print("getAngle z:", gaz)
     '''
     
-    if (type == 'skelet'):
-        ax.scatter([perp_x3,perp_x1,perp_x2,perp_x4], [y[index],perp_y1,perp_y2,y[index]], [perp_z1,z[index],z[index],perp_z2],  c='cyan', marker='o')
+    #if (type == 'skelet'):
+        #ax.scatter([perp_x3,perp_x1,perp_x2,perp_x4], [y[index],perp_y1,perp_y2,y[index]], [perp_z1,z[index],z[index],perp_z2],  c='cyan', marker='o')
     vg_angle_x = vg.angle(np.array([perp_x3,y[index], perp_z1]), np.array([x[index],y[index],z[index]]), look=vg.basis.x)/180*np.pi
     vg_angle_y = vg.angle(np.array([perp_x3,y[index], perp_z1]), np.array([x[index],y[index],z[index]]), look=vg.basis.y)/180*np.pi
     vg_angle_z = vg.angle(np.array([perp_x3,y[index], perp_z1]), np.array([x[index],y[index],z[index]]), look=vg.basis.z)/180*np.pi
@@ -469,16 +411,16 @@ def createEllipse(x,y,z,rx,ry,rz, index, x_prev=None, y_prev=None, z_prev=None, 
 
     #ax.plot3D([perp_x1,perp_x2,perp_x3,perp_x4], [perp_y1,perp_y2, y[index], y[index]], [z[index],z[index],perp_z1,perp_z2], 'blue')
 
-    if (type == 'skelet'):
-        ax.plot_surface(x_, y_, z_,alpha=0.5, color='cyan')
+    #if (type == 'skelet'):
+    #    ax.plot_surface(x_, y_, z_,alpha=0.5, color='cyan')
 
-    angle1 = getAngleBetweenLines(perp_x3, y[index], perp_z1, x[index], y[index], z[index],x[index+1], y[index+1],z[index+1])
+    #angle1 = getAngleBetweenLines(perp_x3, y[index], perp_z1, x[index], y[index], z[index],x[index+1], y[index+1],z[index+1])
 
-    if (type == 'skelet'):
-        ax.plot3D([perp_x3, x[index],x[index+1]], [y[index],y[index],y[index+1]], [perp_z1,z[index],z[index+1]], 'mo-')
+    #if (type == 'skelet'):
+    #    ax.plot3D([perp_x3, x[index],x[index+1]], [y[index],y[index],y[index+1]], [perp_z1,z[index],z[index+1]], 'mo-')
     #print("aaaangle1",angle1)
 
-    angleBetweenPointsYZ = getAngleBetweenPointsYZ(y[index],z[index],y[index+1],z[index+1])
+    #angleBetweenPointsYZ = getAngleBetweenPointsYZ(y[index],z[index],y[index+1],z[index+1])
     theta = -xyz_angles[0] #gax #np.radians(17) #vg_angle_x #angle1+np.pi/2#angleBetweenPointsYZ #+1.5708
     #print("x:", theta, theta*180/np.pi)
 
@@ -487,16 +429,16 @@ def createEllipse(x,y,z,rx,ry,rz, index, x_prev=None, y_prev=None, z_prev=None, 
         #e_x_1d, e_y_1d, e_z_1d = rotate(e_x_1d, e_y_1d, e_z_1d,1, 0, 0, theta)
         ed_x, ed_y, ed_z = rotate(ed_x,ed_y,ed_z,1, 0, 0, theta)
 
-    if (type == 'skelet'):
-        ax.plot3D([perp_x1,perp_x2,perp_x3,perp_x4], [perp_y1,perp_y2, y[index], y[index]], [z[index],z[index],perp_z1,perp_z2], 'blue')
+    #if (type == 'skelet'):
+    #    ax.plot3D([perp_x1,perp_x2,perp_x3,perp_x4], [perp_y1,perp_y2, y[index], y[index]], [z[index],z[index],perp_z1,perp_z2], 'blue')
 
     #ax.plot_surface(np.array([perp_x1,perp_x2,perp_x3,perp_x4]), np.array([perp_y1,perp_y2, y[index], y[index]]), np.array([z[index],z[index],perp_z1,perp_z2]), color='green')
 
-    if (type == 'skelet'):
-        ax.scatter([perp_x3,x[index]], [y[index],y[index]], [perp_z1,z[index]],  c='cyan', marker='o')
+    #if (type == 'skelet'):
+    #    ax.scatter([perp_x3,x[index]], [y[index],y[index]], [perp_z1,z[index]],  c='cyan', marker='o')
     #angle1 = getAnlgeBetweenVectors(perp_x3, y[index], perp_z1, x[index], y[index], z[index])
     
-    angleBetweenPointsXZ = getAngleBetweenPointsXZ(x[index],z[index],x[index],z[index+1])
+    #angleBetweenPointsXZ = getAngleBetweenPointsXZ(x[index],z[index],x[index],z[index+1])
     theta = -xyz_angles[2] #gay #np.radians(19) #vg_angle_y #angleBetweenPointsXZ # + 90deg
     #print("y:", theta, theta*180/np.pi)
    
@@ -531,57 +473,37 @@ def createEllipse(x,y,z,rx,ry,rz, index, x_prev=None, y_prev=None, z_prev=None, 
     return e_x+x[index], e_y+y[index], e_z+z[index], x[index], y[index], z[index]
 
 
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
 
 
-# u=0     #x-position of the center
-# v=0    #y-position of the center
-# a=1     #radius on the x-axis
-# b=1    #radius on the y-axis
+import cv2
+import numpy as np
 
-# t = np.linspace(0, 2*np.pi, 100)
-# x = [i for i in np.linspace(0, 2*np.pi, 100)]
+'''
+cap = cv2.VideoCapture(0)
 
-# y = u+a*np.cos(t)
-# z = v+b*np.sin(t)
+while True:
+    #_, frame = cap.read()
+    frame = cv2.imread("laser-5.jpg", -1)
+    blurred_frame = cv2.GaussianBlur(frame, (5, 5), 0)
+    hsv = cv2.cvtColor(blurred_frame, cv2.COLOR_BGR2HSV)
+    # lower_blue = np.array([38, 86, 0])
+    # upper_blue = np.array([121, 255, 255])
+    lower_red = np.array([5,50,50])
+    upper_red = np.array([40,255,255])  
+    mask = cv2.inRange(hsv, lower_red, upper_red)
+    contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    for contour in contours:
+        cv2.drawContours(frame, contour, -1, (0, 255, 0), 3)
+        cv2.imshow("Frame", frame)
+        #cv2.imshow("Mask", mask)
+        key = cv2.waitKey(1)
+        if key == 27:
+            break
+        
+cap.release()
+cv2.destroyAllWindows()
+'''
 
-# y2 = np.outer(y, 1)
-# z2 = np.outer(z, 1)
-
-
-
-# R = np.linspace(0, 5, 5)
-# h = 0
-# u = np.linspace(0,  2*np.pi, 20)
-
-# y2 = np.outer(R, np.cos(u))
-# z2 = np.outer(R, np.sin(u))
-
-# xyz = {'x': x, 'y': y, 'z': z}
-
-# # put the data into a pandas DataFrame (this is what my data looks like)
-# df = pd.DataFrame(xyz, index=range(len(xyz['x']))) 
-
-# # re-create the 2D-arrays
-# y1 = np.linspace(df['y'].min(), df['y'].max(), len(df['y'].unique()))
-# z1 = np.linspace(df['z'].min(), df['z'].max(), len(df['z'].unique()))
-# y2, z2 = np.meshgrid(y1, z1)
-
-
-# X = np.arange(-2, 2, 1)
-# Y = np.arange(-2, 2, 1)
-# print("X", X)
-# print("Y", Y)
-# R = np.sqrt(X**2 + Y**2)
-# Z = np.sin(R)
-# print("X", len(x2[0]))
-
-# print("Y", len(y2[0]))
-# print("Z", len(z2[0]))
-# ax.plot_surface(0, y2, z2, color='tab:red')
-# plt.show()
-# input()
 
 
 fig = plt.figure()
@@ -589,8 +511,6 @@ fig1 = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax1 = fig1.add_subplot(111, projection='3d')
 #ax = fig.gca(projection='3d') #,autoscale_on=False
-
-from copy import copy
 
 
 '''
@@ -611,138 +531,23 @@ z = copy(z2)
 '''
 
 
-x = np.array([i for i in np.linspace(1,3,50)])
-y = np.array([i**2 for i in x])
-z = np.array([np.sin(i) for i in x])
+'''
+# x = np.array([i for i in np.linspace(1,3,50)])
+# y = np.array([i**2 for i in x])
+# z = np.array([np.sin(i) for i in x])
 
 
-
-ax.plot3D(x, y, z, c='tab:orange', marker='_')
-ax1.plot3D(x, y, z, c='tab:orange', marker='_')
-
-
+# ax.plot3D(x, y, z, c='tab:orange', marker='_')
+# ax1.plot3D(x, y, z, c='tab:orange', marker='_')
 
 
 # Fit with polyfit
-a, b = polyfit(x, y, 1)
-c, d = polyfit(y, z, 1)
-line_x = np.array([i for i in np.linspace(1,3,50)])
-line_y = a + b * line_x
-line_z = c+d*line_y
-
-
-
-# data = np.array([[i,j,k] for i,j,k in zip(x,y,z)])
-# print(data)
-
-# datamean = data.mean(axis=0)
-# uu, dd, vv = np.linalg.svd(data - datamean)
-# print("np.mgrid[-3:3:2j][:, np.newaxis]", np.mgrid[-3:3:2j][:, np.newaxis])
-# linepts = vv[0] * np.mgrid[-1:1:2j][:, np.newaxis]
-# linepts += datamean
-# print(linepts)
-
-# line_x, line_y, line_z = get_points_v([linepts[0][0], linepts[1][0]], [linepts[0][1], linepts[1][1]], [linepts[0][2], linepts[1][2]], n_p= 50)
-# ax.plot3D(line_x[0], line_y[0], line_z[0], c='tab:red', marker="_")
-
-
-# # this will find the slope and x-intercept of a plane
-# # parallel to the y-axis that best fits the data
-# A_xz = np.vstack((x, np.ones(len(x)))).T
-# m_xz, c_xz = np.linalg.lstsq(A_xz, z)[0]
-
-# # again for a plane parallel to the x-axis
-# A_yz = np.vstack((y, np.ones(len(y)))).T
-# m_yz, c_yz = np.linalg.lstsq(A_yz, z)[0]
-
-# # the intersection of those two planes and
-# # the function for the line would be:
-# # z = m_yz * y + c_yz
-# # z = m_xz * x + c_xz
-# # or:
-
-
-# line_z = np.linspace(0,5)
-# line_x,line_y = lin(line_z)
-
+# a, b = polyfit(x, y, 1)
+# c, d = polyfit(y, z, 1)
+# line_x = np.array([i for i in np.linspace(1,3,50)])
+# line_y = a + b * line_x
+# line_z = c+d*line_y
 '''
-min_x = np.min(x)
-max_x = np.max(x)
-new_line_x = []
-
-for j in range(len(line_x)):
-    if (line_x[j] > min_x and line_x[j] < max_x):
-        new_line_x.append(line_x[j])
-
-min_y = np.min(y)
-max_y = np.max(y)
-new_line_y = []
-
-for j in range(len(line_y)):
-    if (line_y[j] > min_y and line_y[j] < max_y):
-        new_line_y.append(line_y[j])
-'''
-
-
-'''
-min_z = np.min(z)
-max_z = np.max(z)
-
-min_x = np.min(x)
-max_x = np.max(x)
-
-min_y = np.min(y)
-max_y = np.max(y)
-
-new_line_z = []
-new_line_x = []
-new_line_y = []
-
-for j in range(len(line_z)):
-    if (line_z[j] > min_z and line_z[j] < max_z):
-        new_line_z.append(line_z[j])
-        new_line_x.append(line_x[j])
-        new_line_y.append(line_y[j])
-
-new_line_z1 = []
-new_line_x1 = []
-new_line_y1 = []
-
-for j in range(len(new_line_y)):
-    if (new_line_y[j] > min_y and new_line_y[j] < max_y):
-        new_line_z1.append(new_line_z[j])
-        new_line_x1.append(new_line_x[j])
-        new_line_y1.append(new_line_y[j])
-
-new_line_z2 = []
-new_line_x2 = []
-new_line_y2 = []
-
-for j in range(len(new_line_x1)):
-    if (new_line_x1[j] > min_x and new_line_x1[j] < max_x):
-        new_line_z2.append(new_line_z1[j])
-        new_line_x2.append(new_line_x1[j])
-        new_line_y2.append(new_line_y1[j])
-
-
-
-
-#ax.scatter3D(*data.T)
-print("line_x", line_x)
-print("line_x", line_y)
-print("line_x", line_z)
-
-
-line_x = line_x[0]
-line_y = line_y[0]
-line_z = line_z[0]
-line_z = [np.sin(i) for i in x]
-
-line_x = new_line_x2
-line_y = new_line_y2
-line_z = new_line_z2
-'''
-
 
 
 def getAngle_BetweenLineAxisXYZ(x,y,z):
@@ -754,9 +559,7 @@ def getAngle_BetweenLineAxisXYZ(x,y,z):
     angleZ = math.atan(deltaX / deltaY)
     return angleX, angleY, angleZ
 
-
-
-
+'''
 angleX, angleY, angleZ = getAngle_BetweenLineAxisXYZ(line_x,line_y,line_z)
 
 line_y_0 = line_y[0]
@@ -784,8 +587,6 @@ else:
 angleX, angleY, angleZ = getAngle_BetweenLineAxisXYZ(line_x,line_y,line_z)
 
 
-
-
 line_x_0 = line_x[0]
 line_y_0 = line_y[0]
 if (angleZ < 0):
@@ -795,67 +596,16 @@ else:
     line_x, line_y = rotateZ(line_x, line_y, line_x_0, line_y_0, np.pi/2-angleZ)
     x, y = rotateZ(x, y, line_x_0, line_y_0, np.pi/2-angleZ)
 
-
 #line_x, line_y, line_z = rotate(line_x, line_y, line_z,0, 0, 1, np.pi/2-angleZ)
 #x, y, z = rotate(x, y, z,0, 0, 1, np.pi/6)
 
 angleX, angleY, angleZ = getAngle_BetweenLineAxisXYZ(line_x,line_y,line_z)
 
-# line_y_0 = line_y[0]
-# line_z_0 = line_z[0]
-# if (angleX < 0): 
-#     line_y, line_z = rotateX(line_y, line_z, line_y[0], line_z[0], (-np.pi/2-angleX))
-#     y, z = rotateX(y, z, line_y_0, line_z_0, (-np.pi/2-angleX))
-# else:
-#     line_y, line_z = rotateX(line_y, line_z, line_y[0], line_z[0], np.pi/2-angleX)   
-#     y, z = rotateX(y, z, line_y_0, line_z_0, (-np.pi/2-angleX))
-
-# angleX, angleY, angleZ = getAngle_BetweenLineAxisXYZ(line_x,line_y,line_z)
-
-
-#line_y, line_z = rotateX(line_y, line_z, line_y[0], line_z[0], np.pi/2)
-# line_x, line_z = rotateY(line_x, line_z,line_x[0], line_z[0], -angleY)
-# line_x, line_y = rotateZ(line_x, line_y,line_x[0], line_y[0], np.pi/2-angleZ)
-
-
-
-# line_x, line_y, line_z = rotate(line_x, line_y, line_z,1, 0, 0, straight_line_angles[0])
-# line_x, line_y, line_z = rotate(line_x, line_y, line_z,0, 1, 0, straight_line_angles[2])
-# line_x, line_y, line_z = rotate(line_x, line_y, line_z,0, 0, 1, -straight_line_angles[1])
-
-
-
-
-
 
 ax.plot3D(line_x, line_y, line_z, c='tab:blue', marker="_")
 #ax.plot3D(new_line_x1, new_line_y1, new_line_z1, c='tab:green', marker="_")
 ax1.plot3D(line_x, line_y, line_z, c='tab:blue', marker='_')
-
-
-
 '''
-center_plane1_x = np.array([[0,0],[0,0]])
-center_plane1_y = np.array([[0,0.5],[0,0.5]])
-center_plane1_z = np.array([[0,0],[0.5,0.5]])
-
-ax.plot_surface(center_plane1_x, center_plane1_y, center_plane1_z,alpha=0.5)
-
-
-center_plane2_x = np.array([[0,0.1],[0,0.1]])
-center_plane2_y = np.array([[0,0],[0,0]])
-center_plane2_z = np.array([[0,0],[0.1,0.1]])
-
-ax.plot_surface(center_plane2_x, center_plane2_y, center_plane2_z,alpha=0.5)
-
-
-center_plane3_x = np.array([[0,0],[0.1,0.1]])
-center_plane3_y = np.array([[0,0.1],[0,0.1]])
-center_plane3_z = np.array([[0.1,0.1],[0.1,0.1]])
-
-ax.plot_surface(center_plane3_x, center_plane3_y, center_plane3_z,alpha=0.5)
-'''
-
 
 curve_e_x =  []
 curve_e_y= []
@@ -864,7 +614,6 @@ straight_e_x = []
 straight_e_y = []
 straight_e_z = []
 straight_line_angles= []
-
 
 x_centers_curve = []
 y_centers_curve = []
@@ -876,14 +625,12 @@ z_centers_straight = []
 
 ellipses_amount = 5
 print("ellipses_amount:", ellipses_amount)
-for i in np.linspace(1,len(x),ellipses_amount):
-    if (i == len(x)-1):
-        break
-    x_centers_straight.append(line_x[int(i-1)]); y_centers_straight.append(line_y[int(i-1)]); z_centers_straight.append(line_z[int(i-1)])
-    x_centers_curve.append(x[int(i-1)]); y_centers_curve.append(y[int(i-1)]); z_centers_curve.append(z[int(i-1)])
+# for i in np.linspace(1,len(x),ellipses_amount):
+#     if (i == len(x)-1):
+#         break
+#     x_centers_straight.append(line_x[int(i-1)]); y_centers_straight.append(line_y[int(i-1)]); z_centers_straight.append(line_z[int(i-1)])
+#     x_centers_curve.append(x[int(i-1)]); y_centers_curve.append(y[int(i-1)]); z_centers_curve.append(z[int(i-1)])
         
-
-
 fig, axs = plt.subplots(ellipses_amount//2, ellipses_amount - (ellipses_amount//2), sharex='col', sharey='row',gridspec_kw={'hspace': 0, 'wspace': 0})
 fig.suptitle('Ellipses approximations')
 
@@ -897,14 +644,13 @@ xcy1 = []
 xcy2 = []
 polygons_points = []
 
-
 def create_ellipse(center, lengths, angle=0):
     circ = Point(center).buffer(1)
     ell = affinity.scale(circ, (lengths[0]), (lengths[1]))
     ellr = affinity.rotate(ell, np.degrees(angle))
     return ellr
 
-
+tmp_counter = 0
 for i in range(len(axs)):
     for j in range(len(axs[i])):
         if (axis_count+1 > ellipses_amount):
@@ -918,14 +664,15 @@ for i in range(len(axs)):
         for l in range(radiuses_amount):
             theta = l*(360/radiuses_amount)
             theta *= np.pi/180.0
-            tmp_x = y_centers_curve[axis_count]+np.cos(theta)*radiuses[axis_count][l]
-            tmp_y = z_centers_curve[axis_count]-np.sin(theta)*radiuses[axis_count][l]
+            #tmp_x = y_centers_curve[axis_count]+np.cos(theta)*radiuses[axis_count][l]
+            #tmp_y = z_centers_curve[axis_count]-np.sin(theta)*radiuses[axis_count][l]
+            tmp_x = 0+np.cos(theta)*radiuses[axis_count][l]
+            tmp_y = 0-np.sin(theta)*radiuses[axis_count][l]
+            
             points_x.append(tmp_x)
             points_y.append(tmp_y)
             points.append([tmp_x, tmp_y])
         
-
-
         #ell_patch = Ellipse((xc, yc), 2*a, 2*b, theta*180/np.pi, edgecolor='red', facecolor='none')
         #axs[i][j].add_patch(ell_patch)
 
@@ -936,14 +683,16 @@ for i in range(len(axs)):
         ellipse_model = EllipseModel()
         ellipse_model.estimate(np.array(points))
         xc, yc, a, b, theta = ellipse_model.params
+        z_centers_curve.append(xc)
+        y_centers_curve.append(yc)
+        x_centers_curve.append(tmp_counter)
+        tmp_counter += 1
         radiuses_axes_ellipse.append([a, b])
         angles_axes_ellipse.append(theta)
         print("center = ",  (xc, yc))
         print("angle of rotation = ",  theta)
         print("axes = ", (a,b))
-
-
-        
+     
         ellipse1 = create_ellipse((y_centers_curve[axis_count], z_centers_curve[axis_count]),(a,b),theta)
         verts1 = np.array(ellipse1.exterior.coords.xy)
         patch1 = mPolygon(verts1.T, color = 'orange', alpha = 0.5)
@@ -954,58 +703,41 @@ for i in range(len(axs)):
         axis_count += 1
 
 
+ax.plot3D(x_centers_curve, y_centers_curve, z_centers_curve, c='tab:orange', marker='_')
+
+
+a, b = polyfit(x_centers_curve, y_centers_curve, 1)
+c, d = polyfit(y_centers_curve, z_centers_curve, 1)
+x_centers_straight = np.array([i for i in range(len(x_centers_curve))])
+y_centers_straight = a + b * x_centers_straight
+z_centers_straight = c+d*y_centers_straight
+
+ax.plot3D(x_centers_straight, y_centers_straight, z_centers_straight, c='tab:blue', marker='_')
 
 tmp_counter=0
-for i in np.linspace(1,len(x),5):
-    c_e = createEllipse(x,y,z,0,radiuses_axes_ellipse[tmp_counter][0],radiuses_axes_ellipse[tmp_counter][0], int(i-1), type='skelet', color='tab:orange')
+#for i in np.linspace(1,len(x),5):
+for i in range(len(x_centers_curve)):
+    #c_e = createEllipse(x,y,z,0,radiuses_axes_ellipse[tmp_counter][0],radiuses_axes_ellipse[tmp_counter][0], int(i-1), type='skelet', color='tab:orange')
+    c_e = createEllipse(x_centers_curve,y_centers_curve,z_centers_curve,0,radiuses_axes_ellipse[tmp_counter][0],radiuses_axes_ellipse[tmp_counter][0], int(i), type='skelet', color='tab:orange')
     if (c_e != None):
         curve_e_x.append(c_e[0]); curve_e_y.append(c_e[1]); curve_e_z.append(c_e[2])
-    s_e = createEllipse(line_x,line_y,line_z,0,0.5,0.5, int(i-1), type='skelet', color='tab:blue')
+    s_e = createEllipse(x_centers_straight,y_centers_straight,z_centers_straight,0,0.5,0.5, int(i), type='skelet', color='tab:blue')
     if (s_e != None):
         #straight_line_angles = s_e[3]
         straight_e_x.append(s_e[0]); straight_e_y.append(s_e[1]); straight_e_z.append(s_e[2])
  
 
-for i in range(1,len(line_x)): 
-    createEllipse(x,y,z,0,0.5,0.5, i-1, type='model', color='tab:orange')
-    createEllipse(line_x,line_y,line_z,0,0.5,0.5, i-1, type='model', color='tab:blue')
-
-
-
-
-
-
-
-
-# ax.plot3D(line_x, line_y, line_z, c='tab:red', marker=".")
-
-
-
-
-# offset = 10
-# z = [0 for i in range(-offset,offset)]
-# x = [i for i in range(-offset,offset)]
-# y = [0 for i in range(-offset,offset)]
-# ax.plot3D(x, y, z, 'gray',alpha=0.2)
-# ax1.plot3D(x, y, z, 'gray',alpha=0.2)
-
-# z = [i for i in range(-offset,offset)]
-# x = [0 for i in range(-offset,offset)]
-# y = [0 for i in range(-offset,offset)]
-# ax.plot3D(x, y, z, 'gray',alpha=0.2)
-# ax1.plot3D(x, y, z, 'gray',alpha=0.2)
-
-# z = [0 for i in range(-offset,offset)]
-# x = [0 for i in range(-offset,offset)]
-# y = [i for i in range(-offset,offset)]
-# ax.plot3D(x, y, z, 'gray',alpha=0.2)
-# ax1.plot3D(x, y, z, 'gray',alpha=0.2)
+for i in range(len(x_centers_curve)): 
+    createEllipse(x_centers_curve,y_centers_curve,z_centers_curve,0,0.5,0.5, i, type='model', color='tab:orange')
+    createEllipse(x_centers_straight,y_centers_straight,z_centers_straight,0,0.5,0.5, i, type='model', color='tab:blue')
 
 
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.set_zlabel('Z')
 
+# ax.set_facecolor('xkcd:salmon')
+# ax.set_facecolor((1.0, 0.47, 0.42))
 
 ax1.set_xlabel('X')
 ax1.set_ylabel('Y')
@@ -1015,72 +747,39 @@ ax.set_xlim(-7, 13); ax.set_ylim(-10, 10); ax.set_zlim(-10, 10)
 ax1.set_xlim(-7, 13); ax1.set_ylim(-10, 10); ax1.set_zlim(-10, 10)
 #ax2.set_zlim(1, 2)
 
-
-
-
-
-
-
  
 # ellipse1 = create_ellipse((0,0),(2,4),10)
-
-
-
-
 
 
 fig1, axs1 = plt.subplots(ellipses_amount//2, ellipses_amount - (ellipses_amount//2), sharex='col', sharey='row',
                         gridspec_kw={'hspace': 0, 'wspace': 0})
 
-
-#(ax1, ax2), (ax3, ax4) = axs
 fig1.suptitle('Intersections')
-# for i in range(len(curve_e_x)):
-#     curve_e_x[i] = list(chain.from_iterable(curve_e_x[i]))
-#     curve_e_y[i] = list(chain.from_iterable(curve_e_y[i]))
-#     curve_e_z[i] = list(chain.from_iterable(curve_e_z[i]))
-
-#     straight_e_x[i] = list(chain.from_iterable(straight_e_x[i]))
-#     straight_e_y[i] = list(chain.from_iterable(straight_e_y[i]))
-#     straight_e_z[i] = list(chain.from_iterable(straight_e_z[i]))
-
-   
-    #curve_e_x[i], curve_e_y[i], curve_e_z[i] = rotate(curve_e_x[i], curve_e_y[i], curve_e_z[i],0,1,0, np.pi/2)
-
-# for i in range(len(curve_e_x)):
-#     straight_e_x[i], straight_e_y[i], straight_e_z[i] = rotate(straight_e_x[i], straight_e_y[i], straight_e_z[i],0,1,0, np.pi/2)
-
-# for i in range(len(curve_e_x)):     
-#     curve_e_x[i], curve_e_y[i], curve_e_z[i] = rotate(curve_e_x[i], curve_e_y[i], curve_e_z[i],1,0,0, np.pi/2)
-
-
-# for i in range(len(curve_e_x)):     
-#     curve_e_x[i], curve_e_y[i], curve_e_z[i] = rotate(curve_e_x[i], curve_e_y[i], curve_e_z[i],0,0,1, np.pi/2)
-
-
-
-# curve_e_x_tmp = []
-# curve_e_z_tmp = []
-# curve_e_x_tmp = copy(curve_e_x) #y
-# curve_e_z_tmp = copy(curve_e_z) #x
-
-# curve_e_x[0] = list(chain.from_iterable(curve_e_x[0]))
-# curve_e_y[0] = list(chain.from_iterable(curve_e_y[0]))
-# curve_e_z[0] = list(chain.from_iterable(curve_e_z[0]))
-
-
-
 
 curve_e_x = copy(curve_e_y)
 straight_e_x = copy(straight_e_y)
 
 axs_count = 0
+
+def checkpoint( h, k, x, y, a, b): 
+  
+    # checking the equation of 
+    # ellipse with the given point 
+    p = ((x - h)**2 / a**2) + ((y - k)**2 / b**2) 
+  
+    return p 
+
+
+print("polygons_points[axs_count][0][k]", polygons_points[axs_count])
+
 for i in range(len(axs1)):
     for j in range(len(axs1[i])):
-        axs1[i][j].set_xlim(-2, 2)
-        axs1[i][j].set_ylim(-2, 2)
         if (axs_count+1 > ellipses_amount):
             break
+        print("\nэллипсы: ", axs_count+1)
+        axs1[i][j].set_xlim(-2, 2)
+        axs1[i][j].set_ylim(-2, 2)
+
 
         #ell_patch = Ellipse((xc, yc), 2*a, 2*b, theta*180/np.pi, edgecolor='red', facecolor='none')
         #axs[i][j].add_patch(ell_patch)
@@ -1094,13 +793,15 @@ for i in range(len(axs1)):
         axs1[i][j].add_patch(patch1)
         #ell_patch = Ellipse((y_centers_curve[axs_count], z_centers_curve[axs_count]), 2*radiuses_axes_ellipse[axs_count][0], 2*radiuses_axes_ellipse[axs_count][1], angles_axes_ellipse[axs_count], color='tab:orange', alpha = 0.5)
         #axs1[i][j].add_patch(ell_patch)
-
-        print("distance between centers: ", math.hypot(y_centers_curve[axs_count] - y_centers_straight[axs_count], z_centers_curve[axs_count] - z_centers_straight[axs_count]))
-
-
+        dist = math.hypot(y_centers_curve[axs_count] - y_centers_straight[axs_count], z_centers_curve[axs_count] - z_centers_straight[axs_count])
+        print("расстояние между центрами: ", dist, end='')
+        if (dist < 0.05):
+            print(" < 0.05")
+        dist = 0
         for k in range(len(polygons_points[axs_count][0])):
-            print(" distance between borders: ", math.hypot(y_centers_straight[axs_count] - polygons_points[axs_count][0][k], z_centers_straight[axs_count] - polygons_points[axs_count][0][k])-0.5)
-
+            dist = math.hypot(y_centers_straight[axs_count] - polygons_points[axs_count][0][k], z_centers_straight[axs_count] - polygons_points[axs_count][1][k])-0.5
+            
+            print(" расстояние от точки", k ,"до границы окружности (r=0.5): ", dist)
 
         verts1 = [[verts1[0][i], verts1[1][i]] for i in range(len(verts1[0]))]
 
@@ -1110,10 +811,40 @@ for i in range(len(axs1)):
         patch2 = mPolygon(verts2.T, color = 'tab:blue', alpha = 0.5)
         axs1[i][j].add_patch(patch2)
         verts2 = [[verts2[0][i], verts2[1][i]] for i in range(len(verts2[0]))]
+
+
+        upper_limit = 0.55
+
+        circle3 = create_ellipse((y_centers_straight[axs_count], z_centers_straight[axs_count]),(upper_limit,upper_limit),0)
+        verts3 = np.array(circle3.exterior.coords.xy)
+
+        patch3 = mPolygon(verts3.T, facecolor = 'none', edgecolor = 'tab:green', alpha = 0.5)
+        axs1[i][j].add_patch(patch3)
+        verts3 = [[verts3[0][i], verts3[1][i]] for i in range(len(verts3[0]))]
+
+        io_points = []
+        for k in range(len(polygons_points[axs_count][0])):
+            #print("[", axs_count, k, "] ", end = '')
+            if (checkpoint(y_centers_straight[axs_count], z_centers_straight[axs_count], polygons_points[axs_count][0][k], polygons_points[axs_count][1][k], upper_limit, upper_limit) > 1): 
+                print (0, end = '') 
+                io_points.append(0)
+        
+            elif (checkpoint(y_centers_straight[axs_count], z_centers_straight[axs_count], polygons_points[axs_count][0][k], polygons_points[axs_count][1][k], upper_limit, upper_limit) == 1): 
+                print (1, end = '') 
+                io_points.append(1)
+            else: 
+               print (1, end = '') 
+               io_points.append(1)
+        print()
+        if (sum(io_points) == len(io_points)):
+            print("в допуске")
+        else:
+            print("не в допуске")
         #circ_patch = Circle((y_centers_straight[axs_count], z_centers_straight[axs_count]), 0.5, color='tab:blue', alpha = 0.5)
         #axs1[i][j].add_patch(circ_patch)
 
 
+      
 
         try:
             coords_xy_1 = sPolygon(verts1)
@@ -1124,147 +855,29 @@ for i in range(len(axs1)):
 
             #print("intersect", intersect, intersect == "POLYGON EMPTY", intersect.length)
             if (intersect.length == 0.0):
-                print(axs_count, "no intersection")
+                print(axs_count, "нет пересечений")
                 axs_count += 1
                 continue
             else: 
-                print(axs_count)
+                pass
             
             verts3 = np.array(intersect.exterior.coords.xy)
             patch3 = mPolygon(verts3.T, facecolor = 'none', edgecolor = 'black')
             axs1[i][j].add_patch(patch3)
 
             ##compute areas and ratios 
-            print('area of ellipse 1:',coords_xy_1.area)
-            print('area of ellipse 2:',coords_xy_2.area)
-            print('area of intersect:',intersect.area)
-            print('intersect/ellipse1:', intersect.area/coords_xy_1.area)
-            print('intersect/ellipse2:', intersect.area/coords_xy_2.area)
+            print('площадь эллипса1:',coords_xy_1.area)
+            print('площадь эллипса2:',coords_xy_2.area)
+            print('площадь пересечения:',intersect.area)
+            print('пересечение/эллипс1:', intersect.area/coords_xy_1.area)
+            print('пересечение/эллипс2:', intersect.area/coords_xy_2.area)
         except:
-            print("self-intersection")
-        #patch4 = mPolygon(coords_1.T, color = 'tab:orange', alpha = 0.5)
-        #axs[i][j].add_patch(patch4)
-
-        #points_all.append(points)
-        #cv2.drawContours(img_copy_3, [np.array(points)], contourIdx=-1, color=(0,0,0),thickness=-1)
-        #verts = [list(zip(x, y, z))]
-        #print("points", points)
-        #print("points_all", points_all)
-        #ax.add_collection3d(Poly3DCollection(verts), zs='z')
-
-
-        # coords_x_1 = []
-        # coords_y_1 = []
-
-        # coords_x_2 = []
-        # coords_y_2 = []
-
-        # for k in range(len(curve_e_x[axs_counter])):
-        #     for l in range(len(curve_e_x[axs_counter][k])):
-        #         coords_y_1.append(curve_e_x[axs_counter][k][l])
-        #         coords_x_1.append(curve_e_z[axs_counter][k][l])  
-        
-
-        # for k in range(len(straight_e_x[axs_counter])):
-        #     for l in range(len(straight_e_x[axs_counter][k])):
-        #         coords_y_2.append(straight_e_x[axs_counter][k][l])
-        #         coords_x_2.append(straight_e_z[axs_counter][k][l])
-        # '''
-        # max_x_1 = np.max(coords_y_1)
-        # min_x_1 = np.min(coords_y_1)
-
-        # max_x_2 = np.max(coords_y_2)
-        # min_x_2 = np.min(coords_y_2)
-
-        # max_x = max(max_x_1, max_x_2)
-        # min_x = min(min_x_1, min_x_2)
-
-        # if (np.abs(max_x) > np.abs(min_x)):
-        #     coords_y_1 = coords_y_1 - max_x
-        #     coords_y_2 = coords_y_2 - max_x
-        # else:
-        #     coords_y_1 = coords_y_1 - min_x
-        #     coords_y_2 = coords_y_2 - min_x
-
-        # max_x_1 = np.max(coords_x_1)
-        # min_x_1 = np.min(coords_x_1)
-
-        # max_x_2 = np.max(coords_x_2)
-        # min_x_2 = np.min(coords_x_2)
-
-        # max_x = max(max_x_1, max_x_2)
-        # min_x = min(min_x_1, min_x_2)
-
-        # if (np.abs(max_x) > np.abs(min_x)):
-        #     coords_x_1 = coords_x_1 - max_x
-        #     coords_x_2 = coords_x_2 - max_x
-        # else:
-        #     coords_x_1 = coords_x_1 - min_x
-        #     coords_x_2 = coords_x_2 - min_x
-
-        # '''
-        # coords_1 = np.array([coords_x_1,coords_y_1])
-        # coords_2 = np.array([coords_x_2,coords_y_2])
-
-        # patch4 = mPolygon(coords_1.T, color = 'tab:orange', alpha = 0.5)
-        # axs[i][j].add_patch(patch4)
-
-        # patch5 = mPolygon(coords_2.T, color = 'tab:blue', alpha = 0.5)
-        # axs[i][j].add_patch(patch5)
-
-
-        # coords_xy_1 = []
-        # for k in range(len(curve_e_x[axs_counter])):
-        #     for l in range(len(curve_e_x[axs_counter][k])):
-        #         coords_xy_1.append((curve_e_z[axs_counter][k][l], curve_e_x[axs_counter][k][l]))
-
-        # coords_xy_2 = []
-        # for k in range(len(straight_e_x[axs_counter])):
-        #     for l in range(len(straight_e_x[axs_counter][k])):
-        #         coords_xy_2.append((straight_e_z[axs_counter][k][l], straight_e_x[axs_counter][k][l]))
-
-
-        # try:
-        #     coords_xy_1 = sPolygon(coords_xy_1)
-        #     coords_xy_2 = sPolygon(coords_xy_2)
-        #     ##the intersect will be outlined in black
-        #     intersect = coords_xy_1.intersection(coords_xy_2)
-
-
-        #     #print("intersect", intersect, intersect == "POLYGON EMPTY", intersect.length)
-        #     if (intersect.length == 0.0):
-        #         print(axs_counter, "no intersection")
-        #         axs_counter += 1
-        #         continue
-        #     else: 
-        #         print(axs_counter)
-            
-        #     verts3 = np.array(intersect.exterior.coords.xy)
-        #     patch3 = mPolygon(verts3.T, facecolor = 'none', edgecolor = 'black')
-        #     axs[i][j].add_patch(patch3)
-
-        #     ##compute areas and ratios 
-        #     print('area of ellipse 1:',coords_xy_1.area)
-        #     print('area of ellipse 2:',coords_xy_2.area)
-        #     print('area of intersect:',intersect.area)
-        #     print('intersect/ellipse1:', intersect.area/coords_xy_1.area)
-        #     print('intersect/ellipse2:', intersect.area/coords_xy_2.area)
-        # except:
-        #     print("self-intersection")
+            print("ошибка пересечений")
 
         axs_count += 1
 
-
-
-
-
-
-
 for ax_i in axs1.flat:
     ax_i.label_outer()
-
-
-
-
+    
 plt.show()
 
